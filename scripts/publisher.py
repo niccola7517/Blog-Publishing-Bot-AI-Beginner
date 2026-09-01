@@ -54,16 +54,13 @@ def run_publisher():
         document_id = docs[0]['id']
         is_existing = True
     else:
-        doc_body = {'title': doc_title}
-        doc = docs_service.documents().create(body=doc_body).execute()
-        document_id = doc.get('documentId')
-        
-        # 새 문서를 지정된 폴더로 이동
-        file = drive_service.files().get(fileId=document_id, fields='parents').execute()
-        previous_parents = ",".join(file.get('parents', []))
-        drive_service.files().update(
-            fileId=document_id, addParents=folder_id, removeParents=previous_parents, fields='id, parents'
-        ).execute()
+        file_metadata = {
+            'name': doc_title,
+            'mimeType': 'application/vnd.google-apps.document',
+            'parents': [folder_id]
+        }
+        doc = drive_service.files().create(body=file_metadata, fields='id').execute()
+        document_id = doc.get('id')
 
     # 5. Gemini API를 통한 구조화된 HTML 생성 (스킬의 철학 및 포맷 엄수)
     client = genai.Client(api_key=api_key)
