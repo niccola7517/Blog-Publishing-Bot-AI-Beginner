@@ -79,19 +79,15 @@ def run_thumbnail_generator():
         """
 
         print(f"\n[{i}/4] 🎨 이미지 생성 중 (Topic {i})...")
+        # Google Gemini 최신 모델(3.7)을 사용한 이미지 생성 (generate_content 메서드 활용)
         try:
-            # Google Imagen 3 모델 호출
-            result = client.models.generate_images(
-                model='imagen-3.0-generate-001',
-                prompt=prompt,
-                config=types.GenerateImagesConfig(
-                    number_of_images=1,
-                    output_mime_type="image/png",
-                    aspect_ratio="16:9"
-                )
+            result = client.models.generate_content(
+                model='gemini-3.7-flash',
+                contents=prompt
             )
             
-            generated_image_bytes = result.generated_images[0].image.image_bytes
+            # generate_content 응답에서 이미지 바이트 추출 (SDK 버전에 따라 파트 구조 접근)
+            generated_image_bytes = result.candidates[0].content.parts[0].inline_data.data
             print("✅ 썸네일 이미지 생성 완료. ☁️ Drive 업로드 중...")
 
             # 6. 생성된 이미지를 Google Drive로 직접 업로드
