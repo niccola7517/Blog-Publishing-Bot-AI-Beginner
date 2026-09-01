@@ -83,11 +83,22 @@ def run_thumbnail_generator():
         try:
             result = client.models.generate_content(
                 model='gemini-3.7-flash',
-                contents=prompt
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"]
+                )
             )
             
-            # generate_content 응답에서 이미지 바이트 추출 (SDK 버전에 따라 파트 구조 접근)
-            generated_image_bytes = result.candidates[0].content.parts[0].inline_data.data
+            # generate_content 응답에서 이미지 바이트 안전하게 추출
+            generated_image_bytes = None
+            for part in result.candidates[0].content.parts:
+                if part.inline_data:
+                    generated_image_bytes = part.inline_data.data
+                    break
+            
+            if not generated_image_bytes:
+                raise ValueError("생성된 이미지 데이터가 없습니다.")
+                
             print("✅ 썸네일 이미지 생성 완료. ☁️ Drive 업로드 중...")
 
             # 6. 생성된 이미지를 Google Drive로 직접 업로드
