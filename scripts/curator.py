@@ -82,44 +82,23 @@ def run_curator():
     curated_topics = response.text
 
     # ==========================================
-    # 3단계: 상태 업데이트 ('N' -> 'Y') 및 날짜별 신규 파일 생성
+    # 3단계: 원본 시트 상태 업데이트 ('N' -> 'Y')
     # ==========================================
-    # 3-1. 원본 시트 상태 'Y'로 업데이트
     header_row = worksheet.row_values(1)
     if "퍼블리싱여부" in header_row:
         status_col_idx = header_row.index("퍼블리싱여부") + 1
         worksheet.update_cell(target_row_index, status_col_idx, "Y")
 
-    # 3-2. 오늘 날짜가 포함된 새 버전의 Google Sheets 저장 (중복 시 v2, v3 처리)
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    base_title = f"[{today_str}] AI 키워드"
-    new_sheet_title = base_title
-    
-    counter = 1
-    while True:
-        try:
-            # 중복 이름 확인
-            gc.open(new_sheet_title)
-            counter += 1
-            new_sheet_title = f"{base_title} (v{counter})"
-        except gspread.exceptions.SpreadsheetNotFound:
-            break
-
-    # 원본 파일 전체를 복사하여 새 파일 생성
-    new_sh = gc.copy(sh.id, title=new_sheet_title)
-
     # ==========================================
-    # 4단계: 결과 안내 및 선택 대기
+    # 4단계: 결과 안내
     # ==========================================
     print("\n==========================================")
     print(f"🎯 핵심키워드: {target_keyword}")
     print("==========================================\n")
     print(curated_topics)
     print("\n==========================================")
-    print(f"✅ 상태 'Y'로 갱신 완료")
-    print(f"📁 새 버전 시트 생성됨: {new_sheet_title}")
-    print(f"🔗 문서 링크: https://docs.google.com/spreadsheets/d/{new_sh.id}")
-    print("\n작성할 주제 번호를 선택해 주세요 (다중 선택 가능)")
+    print(f"✅ 원본 시트 상태 'Y'로 갱신 완료")
+    print(f"🔗 원본 문서 링크: https://docs.google.com/spreadsheets/d/{sh.id}")
     print("==========================================\n")
 
 if __name__ == "__main__":

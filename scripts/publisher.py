@@ -70,42 +70,56 @@ def run_publisher():
     
     # 이전 단계(curator)에서 전달받은 주제가 있다고 가정 (여기서는 임시 데이터 처리)
     # 실제 연동 시 시트에서 큐레이션된 데이터를 읽어오도록 확장할 수 있습니다.
-    topic_name = "테스트 클라우드 주제"
+    target_keyword = "테스트 클라우드 키워드"
     
-    prompt = f"""
-    당신은 AEO/GEO 최적화 기술 블로그 포스팅 전문가입니다.
-    초보자와 비전공자(Complete beginners)를 대상으로 다음 주제에 대한 기술 블로그 포스팅을 HTML 형식으로 작성해 주세요.
+    topics = [
+        f"{target_keyword} - [개념 이해]: 직관적인 일상 비유로 풀어낸 기술의 본질과 등장 배경",
+        f"{target_keyword} - [실무 활용]: 비개발자 직장인이 업무/일상에서 바로 써먹는 생산성 향상 사례",
+        f"{target_keyword} - [입문 튜토리얼]: 웹 브라우저 기반 무료 도구로 10분 만에 끝내는 0 to 1 실습 가이드",
+        f"{target_keyword} - [트러블슈팅 & 꿀팁]: 에러 발생 시 대화 요령, 초보자 주의사항 및 보안 수칙"
+    ]
     
-    주제: {topic_name}
+    generated_results = []
     
-    [엄격한 작성 규칙]
-    1. Tone: 복잡한 기술 개념을 일상적인 비유(metaphors)로 설명하고 실무/일상적 가치에 집중하세요.
-    2. Heading: 제목은 <h1> 1회, 대단원은 <h2>, 소단원은 <h3>로 엄격히 계층화하세요.
-    3. Body: 모든 본문은 순수 <p> 태그만 사용하며, 볼드체(**, <b>, <strong>)는 절대 사용하지 마세요.
-    4. Table: <th> 1줄을 포함한 단일 헤더 비교 표를 작성하고, 데이터 행은 <td>만 사용하세요.
-    5. FAQ: <h2>FAQ</h2> 아래에 <h3> 태그를 활용하여 초보자용 질문 3개를 작성하세요.
-    6. JSON-LD: 문서 끝에 <pre> 태그로 감싼 TechArticle 및 FAQPage JSON-LD 스키마를 포함하세요.
-    7. 분량: 최소 2,000자 이상으로 풍성하게 작성하세요.
-    """
+    for i, topic_name in enumerate(topics, 1):
+        print(f"[{today_str}] Topic {i} 생성 중... ({topic_name})")
+        prompt = f"""
+        당신은 AEO/GEO 최적화 기술 블로그 포스팅 전문가입니다.
+        초보자와 비전공자(Complete beginners)를 대상으로 다음 주제에 대한 기술 블로그 포스팅을 HTML 형식으로 작성해 주세요.
+        
+        주제: {topic_name}
+        
+        [엄격한 작성 규칙]
+        1. Tone: 복잡한 기술 개념을 일상적인 비유(metaphors)로 설명하고 실무/일상적 가치에 집중하세요.
+        2. Heading: 제목은 <h1> 1회, 대단원은 <h2>, 소단원은 <h3>로 엄격히 계층화하세요.
+        3. Body: 모든 본문은 순수 <p> 태그만 사용하며, 볼드체(**, <b>, <strong>)는 절대 사용하지 마세요.
+        4. Table: <th> 1줄을 포함한 단일 헤더 비교 표를 작성하고, 데이터 행은 <td>만 사용하세요.
+        5. FAQ: <h2>FAQ</h2> 아래에 <h3> 태그를 활용하여 초보자용 질문 3개를 작성하세요.
+        6. JSON-LD: 문서 끝에 <pre> 태그로 감싼 TechArticle 및 FAQPage JSON-LD 스키마를 포함하세요.
+        7. 분량: 최소 2,000자 이상으로 풍성하게 작성하세요.
+        """
 
-    response = client.models.generate_content(
-        model='gemini-2.5-pro', # 복잡한 구조화 지시가 있으므로 pro 모델 권장
-        contents=prompt,
-    )
-    article_html = response.text
-    char_count = len(article_html)
+        response = client.models.generate_content(
+            model='gemini-2.5-pro', # 복잡한 구조화 지시가 있으므로 pro 모델 권장
+            contents=prompt,
+        )
+        article_html = response.text
+        char_count = len(article_html)
+        generated_results.append((topic_name, article_html, char_count))
 
     # 6. Google Docs 문서에 내용 삽입
     # 기존 문서가 있으면 맨 앞에 구분선(---) 추가 후 이어쓰기
     requests = []
-    insert_text = f"\n\n---\n\n{article_html}\n" if is_existing else f"{article_html}\n"
     
-    requests.append({
-        'insertText': {
-            'location': {'index': 1},
-            'text': insert_text
-        }
-    })
+    # 문서 맨 앞에 가장 마지막 토픽부터 역순으로 삽입하여 1, 2, 3, 4 순서가 되도록 함
+    for i, (topic_name, article_html, char_count) in enumerate(reversed(generated_results)):
+        insert_text = f"\n\n---\n\n{article_html}\n" if (is_existing or i > 0) else f"{article_html}\n"
+        requests.append({
+            'insertText': {
+                'location': {'index': 1},
+                'text': insert_text
+            }
+        })
 
     docs_service.documents().batchUpdate(
         documentId=document_id,
@@ -119,9 +133,10 @@ def run_publisher():
     print(f"\n📄 문서 바로가기: {doc_url}")
     print(f"📁 저장 위치: {folder_name}")
     print("\n[생성된 주제 요약]")
-    print(f"- Topic 1: {topic_name} (약 {char_count}자)")
+    for i, (topic_name, article_html, char_count) in enumerate(generated_results, 1):
+        print(f"- Topic {i}: {topic_name} (약 {char_count}자)")
     print("\n👉 다음 단계로 썸네일을 생성하려면 아래 명령어를 입력하세요:")
-    print("/aeo-thumbnail-generator 1\n")
+    print("/aeo-thumbnail-generator 1 2 3 4\n")
 
 if __name__ == "__main__":
     run_publisher()
