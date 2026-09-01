@@ -100,7 +100,7 @@ def run_publisher():
         """
 
         response = client.models.generate_content(
-            model='gemini-2.5-pro', # 복잡한 구조화 지시가 있으므로 pro 모델 권장
+            model='gemini-1.5-pro', # 복잡한 구조화 지시가 있으므로 pro 모델 권장
             contents=prompt,
         )
         article_html = response.text
