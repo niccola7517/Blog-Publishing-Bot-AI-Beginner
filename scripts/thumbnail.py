@@ -102,34 +102,29 @@ def run_thumbnail_generator():
                 
             print("✅ 썸네일 이미지 생성 완료. ☁️ Drive 업로드 중...")
 
-            # 6. 생성된 이미지를 Google Drive로 직접 업로드
-            media = MediaIoBaseUpload(io.BytesIO(generated_image_bytes), mimetype='image/png', resumable=True)
-            file_metadata = {
-                'name': file_name,
-                'parents': [folder_id]
-            }
+            # 6. 생성된 이미지를 구글 드라이브 대신 GitHub 로컬 저장소에 저장 (Quota 에러 완벽 우회)
+            thumbnail_dir = "thumbnails"
+            os.makedirs(thumbnail_dir, exist_ok=True)
+            local_file_path = os.path.join(thumbnail_dir, file_name)
             
-            uploaded_file = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id, webViewLink'
-            ).execute()
-            
-            file_link = uploaded_file.get('webViewLink')
-            generated_links.append((file_name, file_link))
+            with open(local_file_path, "wb") as f:
+                f.write(generated_image_bytes)
+                
+            print(f"✅ 로컬 파일 저장 완료: {local_file_path}")
+            generated_links.append((file_name, local_file_path))
             
         except Exception as e:
-            print(f"❌ Topic {i} 이미지 생성/업로드 중 오류 발생: {e}")
+            print(f"❌ Topic {i} 이미지 생성 중 오류 발생: {e}")
             sys.exit(1)
 
     # 7. 출력 규칙 (Output & Verification) 준수
     print("\n==========================================")
     print("🎉 AEO 썸네일 생성 및 업로드 성공 (총 4건)")
     print("==========================================")
-    print(f"📁 저장 위치: {folder_name}\n")
-    for file_name, file_link in generated_links:
+    print(f"📁 저장 위치: GitHub 저장소의 thumbnails/ 폴더\n")
+    for file_name, local_path in generated_links:
         print(f"✅ 파일명: {file_name}")
-        print(f"🔗 링크: {file_link}\n")
+        print(f"🔗 경로: {local_path}\n")
     print("==========================================\n")
 
 if __name__ == "__main__":
