@@ -79,10 +79,10 @@ def run_thumbnail_generator():
         """
 
         print(f"\n[{i}/4] 🎨 이미지 생성 중 (Topic {i})...")
-        # Google Gemini 최신 모델(3.7)을 사용한 이미지 생성 (generate_content 메서드 활용)
+        # Google Gemini 최신 이미지 전용 모델을 사용한 이미지 생성
         try:
             result = client.models.generate_content(
-                model='gemini-3.7-flash',
+                model='gemini-2.5-flash-image', # 이미지 전용 통합 모델
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE"]
@@ -91,13 +91,14 @@ def run_thumbnail_generator():
             
             # generate_content 응답에서 이미지 바이트 안전하게 추출
             generated_image_bytes = None
-            for part in result.candidates[0].content.parts:
-                if part.inline_data:
-                    generated_image_bytes = part.inline_data.data
-                    break
+            if result.candidates and result.candidates[0].content and result.candidates[0].content.parts:
+                for part in result.candidates[0].content.parts:
+                    if part.inline_data:
+                        generated_image_bytes = part.inline_data.data
+                        break
             
             if not generated_image_bytes:
-                raise ValueError("생성된 이미지 데이터가 없습니다.")
+                raise ValueError("생성된 이미지 데이터가 없습니다. (모델이 이미지를 반환하지 않았습니다.)")
                 
             print("✅ 썸네일 이미지 생성 완료. ☁️ Drive 업로드 중...")
 
