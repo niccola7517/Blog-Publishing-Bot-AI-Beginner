@@ -16,53 +16,16 @@ def run_publisher():
     
     if not api_key:
         raise ValueError("AI_API_KEY 환경 변수가 설정되지 않았습니다.")
-    if not service_account_json:
-        raise ValueError("GCP_SA_KEY 환경 변수가 설정되지 않았습니다.")
 
-    # 2. Google Drive & Docs API 인증 설정
-    scopes = [
-        "https://www.googleapis.com/auth/documents",
-        "https://www.googleapis.com/auth/drive"
-    ]
-    credentials = Credentials.from_service_account_info(
-        eval(service_account_json), scopes=scopes
-    )
-    drive_service = build('drive', 'v3', credentials=credentials)
-    docs_service = build('docs', 'v1', credentials=credentials)
+    # 2. 로컬 저장소(docs) 폴더 확인 및 생성
+    docs_dir = "docs"
+    os.makedirs(docs_dir, exist_ok=True)
+    
+    # 오늘 날짜의 HTML 파일명 정의
+    html_file_name = f"{today_str}_Cloud-AI_테크포스팅.html"
+    local_file_path = os.path.join(docs_dir, html_file_name)
 
-    # 3. 타겟 아카이브 폴더 확인 및 생성
-    folder_name = "Cloud-AI 포스팅 아카이브"
-    query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-    folder_results = drive_service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
-    folders = folder_results.get('files', [])
-
-    if folders:
-        folder_id = folders[0]['id']
-    else:
-        folder_metadata = {'name': folder_name, 'mimeType': 'application/vnd.google-apps.folder'}
-        folder = drive_service.files().create(body=folder_metadata, fields='id').execute()
-        folder_id = folder.get('id')
-
-    # 4. 일일 포스팅 문서 확인 및 생성
-    doc_title = f"[{today_str}] Cloud-AI 테크 포스팅"
-    doc_query = f"name='{doc_title}' and '{folder_id}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false"
-    doc_results = drive_service.files().list(q=doc_query, spaces='drive', fields='files(id, name)').execute()
-    docs = doc_results.get('files', [])
-
-    is_existing = False
-    if docs:
-        document_id = docs[0]['id']
-        is_existing = True
-    else:
-        file_metadata = {
-            'name': doc_title,
-            'mimeType': 'application/vnd.google-apps.document',
-            'parents': [folder_id]
-        }
-        doc = drive_service.files().create(body=file_metadata, fields='id').execute()
-        document_id = doc.get('id')
-
-    # 5. Gemini API를 통한 구조화된 HTML 생성 (스킬의 철학 및 포맷 엄수)
+    # 3. Gemini API를 통한 구조화된 HTML 생성 (스킬의 철학 및 포맷 엄수)
     client = genai.Client(api_key=api_key)
     
     # 이전 단계(curator)에서 전달받은 주제가 있다고 가정 (여기서는 임시 데이터 처리)
@@ -86,13 +49,13 @@ def run_publisher():
         
         주제: {topic_name}
         
-        [엄격한 작성 규칙]
-        1. Tone: 복잡한 기술 개념을 일상적인 비유(metaphors)로 설명하고 실무/일상적 가치에 집중하세요.
-        2. Heading: 제목은 <h1> 1회, 대단원은 <h2>, 소단원은 <h3>로 엄격히 계층화하세요.
-        3. Body: 모든 본문은 순수 <p> 태그만 사용하며, 볼드체(**, <b>, <strong>)는 절대 사용하지 마세요.
-        4. Table: <th> 1줄을 포함한 단일 헤더 비교 표를 작성하고, 데이터 행은 <td>만 사용하세요.
-        5. FAQ: <h2>FAQ</h2> 아래에 <h3> 태그를 활용하여 초보자용 질문 3개를 작성하세요.
-        6. JSON-LD: 문서 끝에 <pre> 태그로 감싼 TechArticle 및 FAQPage JSON-LD 스키마를 포함하세요.
+        [엄격한 작성 규칙 - Blogspot 최적화]
+        1. 형식: <html>, <head>, <body> 같은 문서 래퍼 태그를 절대 쓰지 마세요. <h2>, <h3>, <p>, <ul> 등의 본문 태그만 출력해야 Blogger 'HTML 보기' 모드에 바로 붙여넣을 수 있습니다.
+        2. Tone: 복잡한 기술 개념을 일상적인 비유(metaphors)로 설명하고 실무/일상적 가치에 집중하세요.
+        3. Heading: 최상단 제목은 <h2>로 시작하고, 하위 항목은 <h3>를 사용하세요. (블로그스팟은 글 제목이 h1이 되므로 본문은 h2부터 시작하는 것이 SEO에 좋습니다)
+        4. Body: 모바일 가독성을 위해 문단(<p>)을 짧게 끊고, 여백(<br><br>)을 적절히 활용하세요.
+        5. Table: <th> 1줄을 포함한 단일 헤더 비교 표를 깔끔한 인라인 CSS와 함께 작성하세요.
+        6. FAQ: 문서 하단에 <h3>FAQ</h3>를 만들고 자주 묻는 질문 3개를 작성하세요.
         7. 분량: 최소 2,000자 이상으로 풍성하게 작성하세요.
         """
 
@@ -104,31 +67,17 @@ def run_publisher():
         char_count = len(article_html)
         generated_results.append((topic_name, article_html, char_count))
 
-    # 6. Google Docs 문서에 내용 삽입
-    # 기존 문서가 있으면 맨 앞에 구분선(---) 추가 후 이어쓰기
-    requests = []
-    
-    # 문서 맨 앞에 가장 마지막 토픽부터 역순으로 삽입하여 1, 2, 3, 4 순서가 되도록 함
-    for i, (topic_name, article_html, char_count) in enumerate(reversed(generated_results)):
-        insert_text = f"\n\n---\n\n{article_html}\n" if (is_existing or i > 0) else f"{article_html}\n"
-        requests.append({
-            'insertText': {
-                'location': {'index': 1},
-                'text': insert_text
-            }
-        })
+    # 6. 로컬 HTML 파일로 저장 (Blogspot 용)
+    # 기존 파일이 있다면 뒤에 이어쓰고(append), 없으면 새로 만듭니다.
+    with open(local_file_path, "a", encoding="utf-8") as f:
+        for i, (topic_name, article_html, char_count) in enumerate(generated_results, 1):
+            f.write(f"<!-- Topic {i}: {topic_name} -->\n")
+            f.write(article_html)
+            f.write("\n\n<hr style='border: 1px solid #eee; margin: 40px 0;'>\n\n")
 
-    docs_service.documents().batchUpdate(
-        documentId=document_id,
-        body={'requests': requests}
-    ).execute()
-
-    # 7. 즉시 종료 및 지정된 출력 규칙(Output Rule) 적용 (채팅창 과부하 방지)
-    doc_url = f"https://docs.google.com/document/d/{document_id}/edit"
-    
+    # 7. 출력 규칙 (Output & Verification) 준수
     print(f"\n✅ [{today_str}] Cloud-AI 테크 포스팅 작성이 완료되었습니다.")
-    print(f"\n📄 문서 바로가기: {doc_url}")
-    print(f"📁 저장 위치: {folder_name}")
+    print(f"📁 저장 위치: GitHub 저장소의 {local_file_path}")
     print("\n[생성된 주제 요약]")
     for i, (topic_name, article_html, char_count) in enumerate(generated_results, 1):
         print(f"- Topic {i}: {topic_name} (약 {char_count}자)")
