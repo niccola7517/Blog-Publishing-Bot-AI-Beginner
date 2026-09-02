@@ -9,6 +9,8 @@ on:
 jobs:
   run-aeo-pipeline:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -43,3 +45,11 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
           python scripts/thumbnail.py
+
+      - name: Step 4. Commit and Push Generated Content to Repository
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add thumbnails/ docs/
+          git commit -m "Auto-generated blog content for $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          git push
