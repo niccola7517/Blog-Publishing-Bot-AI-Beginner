@@ -58,8 +58,11 @@ def run_thumbnail_generator():
     print("🎨 AEO 썸네일 생성 파이프라인 시작 (4개 토픽)")
     print("==========================================")
 
+    import re
     for i, topic_name in enumerate(topics, 1):
-        file_name = f"[{today_str}] 썸네일 Topic {i} - {topic_name}.png"
+        raw_file_name = f"[{today_str}] 썸네일 Topic {i} - {topic_name}.png"
+        # 파일명으로 사용할 수 없는 특수기호(\, /, :, *, ?, ", <, >, |)를 언더바(_)로 치환
+        file_name = re.sub(r'[\\/*?:"<>|]', "_", raw_file_name)
         
         # 5. Gemini API(Imagen 3)를 활용한 썸네일 생성 프롬프트 구성 (스킬 룰 엄격 적용)
         prompt = f"""
